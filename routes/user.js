@@ -301,5 +301,75 @@ router.put('/friends/:id/reject', authMiddleware, async (req, res) => {
         res.status(500).json({ error: 'Server error' });
     }
 });
+// Получение оценок друга
+router.get('/friends/:friendId/ratings/:year/:month', authMiddleware, async (req, res) => {
+    try {
+        const { friendId, year, month } = req.params;
+        const startDate = `${year}-${month.padStart(2, '0')}-01`;
+        const endDate = new Date(parseInt(year), parseInt(month), 0).toISOString().split('T')[0];
+        
+        // Проверка, что пользователь и друг - друзья
+        const isFriend = await query(
+            `SELECT id FROM friends 
+             WHERE ((user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1))
+             AND status = 'accepted'`,
+            [req.userId, friendId]
+        );
+        
+        if (isFriend.rows.length === 0) {
+            return res.status(403).json({ error: 'Not friends' });
+        }
+        
+        const result = await query(
+            `SELECT date, rating FROM days_ratings 
+             WHERE user_id = $1 AND date BETWEEN $2 AND $3`,
+            [friendId, startDate, endDate]
+        );
+        
+        const ratings = {};
+        result.rows.forEach(row => {
+            ratings[row.date.split('T')[0]] = row.rating;
+        });
+        
+        res.json(ratings);
+    } catch (error) {
+        console.error('Get friend ratings error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
 
+// Получение статистики друга
+router.get('/friends/:friendId/stats', authMiddleware, async (req, res) => {
+    try {
+        const { friendId } = req.params;
+        
+        // Проверка, что пользователь и друг - друзья
+        const isFriend = await query(
+            `SELECT id FROM friends 
+             WHERE ((user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1))
+             AND status = 'accepted'`,
+            [req.userId, friendId]
+        );
+        
+        if (isFriend.rows.length === 0) {
+            return res.status(403).json({ error: 'Not friends' });
+        }
+        
+        const result = await query(
+            `SELECT 
+                COUNT(*) as total_rated,
+                COALESCE(ROUND(AVG(rating), 1), 0) as avg_rating,
+                COALESCE(MAX(rating), 0) as max_rating,
+                COALESCE(MIN(rating), 0) as min_rating
+             FROM days_ratings 
+             WHERE user_id = $1`,
+            [friendId]
+        );
+        
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Get friend stats error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
 module.exports = router;
