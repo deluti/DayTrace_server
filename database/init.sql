@@ -40,15 +40,8 @@ CREATE TABLE IF NOT EXISTS friends (
     UNIQUE(user_id, friend_id)
 );
 
--- Индексы для быстрого поиска
+-- Индексы
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 CREATE INDEX IF NOT EXISTS idx_ratings_user_date ON days_ratings(user_id, date);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_read ON notifications(user_id, is_read);
-CREATE INDEX IF NOT EXISTS idx_friends_user_id ON friends(user_id);
-
--- Комментарии к таблицам
-COMMENT ON TABLE users IS 'Пользователи системы';
-COMMENT ON TABLE days_ratings IS 'Оценки дней пользователей';
-COMMENT ON TABLE notifications IS 'Уведомления пользователей';
-COMMENT ON TABLE friends IS 'Друзья пользователей';

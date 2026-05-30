@@ -1,31 +1,40 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
+// Для Render используем DATABASE_URL из переменных окружения
 const pool = new Pool({
-    host: process.env.DB_HOST,
-    port: process.env.DB_PORT || 5432,
-    database: process.env.DB_NAME,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
+    connectionString: process.env.DATABASE_URL,
     ssl: {
-        rejectUnauthorized: false
+        rejectUnauthorized: false  // Обязательно для Render
     },
     max: 20,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 2000,
+    connectionTimeoutMillis: 5000,
 });
 
-// Проверка подключения
 pool.on('connect', () => {
-    console.log('Connected to PostgreSQL database');
+    console.log('✅ Connected to PostgreSQL database');
 });
 
 pool.on('error', (err) => {
-    console.error('Unexpected error on idle client', err);
-    process.exit(-1);
+    console.error('❌ Database error:', err.message);
 });
+
+const testConnection = async () => {
+    try {
+        const client = await pool.connect();
+        const result = await client.query('SELECT NOW() as time');
+        console.log('✅ Database connected at:', result.rows[0].time);
+        client.release();
+        return true;
+    } catch (err) {
+        console.error('❌ Database connection failed:', err.message);
+        return false;
+    }
+};
 
 module.exports = {
     query: (text, params) => pool.query(text, params),
-    pool
+    pool,
+    testConnection
 };

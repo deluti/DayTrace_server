@@ -10,7 +10,6 @@ router.post('/register', async (req, res) => {
     try {
         const { email, username, password } = req.body;
         
-        // Валидация
         if (!email || !username || !password) {
             return res.status(400).json({ error: 'All fields are required' });
         }
@@ -22,26 +21,23 @@ router.post('/register', async (req, res) => {
         // Проверка существующего пользователя
         const existingUser = await query(
             'SELECT id FROM users WHERE email = $1 OR username = $2',
-            [email, username]
+            [email.toLowerCase(), username.toLowerCase()]
         );
         
         if (existingUser.rows.length > 0) {
             return res.status(400).json({ error: 'User already exists' });
         }
         
-        // Хеширование пароля
         const passwordHash = await bcrypt.hash(password, 10);
         
-        // Создание пользователя
         const result = await query(
             `INSERT INTO users (email, username, password_hash) 
              VALUES ($1, $2, $3) RETURNING id, email, username, avatar_url, created_at`,
-            [email, username, passwordHash]
+            [email.toLowerCase(), username.toLowerCase(), passwordHash]
         );
         
         const user = result.rows[0];
         
-        // Создание JWT токена
         const token = jwt.sign(
             { userId: user.id, email: user.email, username: user.username },
             process.env.JWT_SECRET,
@@ -74,10 +70,9 @@ router.post('/login', async (req, res) => {
             return res.status(400).json({ error: 'Login and password are required' });
         }
         
-        // Поиск пользователя по email или username
         const result = await query(
             'SELECT * FROM users WHERE email = $1 OR username = $1',
-            [login]
+            [login.toLowerCase()]
         );
         
         if (result.rows.length === 0) {
@@ -85,15 +80,12 @@ router.post('/login', async (req, res) => {
         }
         
         const user = result.rows[0];
-        
-        // Проверка пароля
         const validPassword = await bcrypt.compare(password, user.password_hash);
         
         if (!validPassword) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
         
-        // Создание JWT токена
         const token = jwt.sign(
             { userId: user.id, email: user.email, username: user.username },
             process.env.JWT_SECRET,
